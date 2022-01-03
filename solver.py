@@ -6,46 +6,21 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 
-Config.set('graphics', 'width', '600')
-Config.set('graphics', 'height', '600')
-
-def solve(selectors,i,j,l,m):
-    solve = selectors[i][j][l][m]
-    if solve.value() is not None:
-        return False
+def single_verify(selectors,i,j,l,m):
+    number = selectors[i][j][l][m]
 
     disables = set()
 
     #group
-    availables = []
-    own_available = set(solve.available())
     for s in range(3):
         for t in range(3):
             if s == l and t == m:
                 continue
             value = selectors[i][j][s][t].value()
             if value is not None:
-                disables.add(value)
-                own_available = own_available - set([value])
-            else:
-                availables.append(selectors[i][j][s][t].available())
-    for ava in availables:
-        own_available = own_available - set(ava)
-        length = len(ava)
-        count  = 0
-        for rel in availables:
-            if ava == rel:
-                count = count + 1
-        if count == length:
-            for value in ava:
-                disables.add(value)
-    if len(own_available) == 1:
-        solve.setValue(list(own_available)[0])
-        return True
+                disables.add(value) #singleton
 
     #horizon i,l freeze
-    availables = []
-    own_available = set(solve.available())
     for s in range(3):
         for t in range(3):
             if s == j and t == m:
@@ -54,25 +29,8 @@ def solve(selectors,i,j,l,m):
             if value is not None:
                 disables.add(value)
                 own_available = own_available - set([value])
-            else:
-                availables.append(selectors[i][s][l][t].available())
-    for ava in availables:
-        own_available = own_available - set(ava)
-        length = len(ava)
-        count  = 0
-        for rel in availables:
-            if ava == rel:
-                count = count + 1
-        if count == length:
-            for value in ava:
-                disables.add(value)
-    if len(own_available) == 1:
-        solve.setValue(list(own_available)[0])
-        return True
 
     #vertical j,m freeze
-    availables = []
-    own_available = set(solve.available())
     for s in range(3):
         for t in range(3):
             if s == i and t == l:
@@ -81,29 +39,156 @@ def solve(selectors,i,j,l,m):
             if value is not None:
                 disables.add(value)
                 own_available = own_available - set([value])
-            else:
-                availables.append(selectors[s][j][t][m].available())
-    for ava in availables:
-        own_available = own_available - set(ava)
-        length = len(ava)
-        count  = 0
-        for rel in availables:
-            if ava == rel:
-                count = count + 1
-        if count == length:
-            for value in ava:
-                disables.add(value)
-    if len(own_available) == 1:
-        solve.setValue(list(own_available)[0])
-        return True
-    
-    solve.disable(disables)
-    if len(solve.available()) == 1:
-        val = solve.available()[0]
-        solve.setValue(val)
-        return True
 
+    available = set(number.available())
+
+    if len(available & disables) == 0:
+        return True
     return False
+
+def verify(selectors):
+    valid = True
+    for i in range(3):
+        for j in range(3):
+            for l in range(3):
+                for m in range(3):
+                    valid = valid and single_verify(selectors,i,j,l,m)
+    return valid
+
+class Solver():
+    def __init__(self):
+        self.features = {}
+        self.features['singleton'] = True
+        self.features['uniqueness'] = True
+        self.features['number_group'] = True
+        self.features['uniqueness_line'] = True
+        self.features['uniqueness_grid'] = True
+
+    def get_features(self):
+        return self.features.copy()
+
+    def set_features(self,feat):
+        for key in self.features:
+            v = feat[key]
+            if (v is not None) and (type(v) is bool):
+                self.features[key] = feat[key]
+
+    def single_solve(self,selectors,i,j,l,m):
+        number = selectors[i][j][l][m]
+        if number.value() is not None:
+            return False
+
+        disables = set()
+
+        #group
+        availables = []
+        own_available = set(number.available())
+        for s in range(3):
+            for t in range(3):
+                if s == l and t == m:
+                    continue
+                value = selectors[i][j][s][t].value()
+                if value is not None:
+                    if self.features['singleton']:
+                        disables.add(value) #singleton
+                    own_available = own_available - set([value])
+                else:
+                    availables.append(selectors[i][j][s][t].available())
+        for ava in availables:
+            own_available = own_available - set(ava)
+            if self.features['number_group']:
+                length = len(ava)
+                count  = 0
+                for rel in availables:
+                    if ava == rel:
+                        count = count + 1
+                if count == length:
+                    for value in ava:
+                        disables.add(value) # number group
+        if self.features['uniqueness'] and len(own_available) == 1:
+            number.setValue(list(own_available)[0]) #uniqueness
+            return True
+
+        #horizon i,l freeze
+        availables = []
+        own_available = set(number.available())
+        for s in range(3):
+            for t in range(3):
+                if s == j and t == m:
+                    continue
+                value = selectors[i][s][l][t].value()
+                if value is not None:
+                    if self.features['singleton']:
+                        disables.add(value) #singleton
+                    own_available = own_available - set([value])
+                else:
+                    availables.append(selectors[i][s][l][t].available())
+        for ava in availables:
+            own_available = own_available - set(ava)
+            if self.features['number_group']:
+                length = len(ava)
+                count  = 0
+                for rel in availables:
+                    if ava == rel:
+                        count = count + 1
+                if count == length:
+                    for value in ava:
+                        disables.add(value)
+        if self.features['uniqueness'] and len(own_available) == 1:
+            number.setValue(list(own_available)[0])
+            return True
+
+        #vertical j,m freeze
+        availables = []
+        own_available = set(number.available())
+        for s in range(3):
+            for t in range(3):
+                if s == i and t == l:
+                    continue
+                value = selectors[s][j][t][m].value()
+                if value is not None:
+                    if self.features['singleton']:
+                        disables.add(value) #singleton
+                    own_available = own_available - set([value])
+                else:
+                    availables.append(selectors[s][j][t][m].available())
+        for ava in availables:
+            own_available = own_available - set(ava)
+            if self.features['number_group']:
+                length = len(ava)
+                count  = 0
+                for rel in availables:
+                    if ava == rel:
+                        count = count + 1
+                if count == length:
+                    for value in ava:
+                        disables.add(value)
+        if self.features['uniqueness'] and len(own_available) == 1:
+            number.setValue(list(own_available)[0])
+            return True
+        
+        old_availables = number.available()
+        number.disable(disables)
+        if len(number.available()) == 1:
+            val = number.available()[0]
+            number.setValue(val)
+
+        if old_availables != number.available():
+            return True
+
+        return False
+
+
+    def solve(self,selectors):
+        while True:
+            update = False
+            for i in range(3):
+                for j in range(3):
+                    for l in range(3):
+                        for m in range(3):
+                            update = update or self.single_solve(selectors,i,j,l,m)
+            if update == False:
+                break
 
 ########################################################################
 ##
@@ -165,6 +250,10 @@ class Number_selector(GridLayout):
     def value(self):
         return self.selected_value
 
+    # Ture : value is selected by user
+    def isFixed(self):
+        return self.selected
+
     # available values. it is result of solver.
     def available(self):
         values = []
@@ -205,6 +294,7 @@ class Number_grid(GridLayout):
         self.selectors = [] # selectors grid (3,3) in (3,3) "Sudoku shape"
         self.selectors_flat = [] # selectors 1 dim array
         self.history = [] # history of user selection
+        self.solver = Solver()
 
         for i in range(self.cols):
             jdim = []
@@ -225,15 +315,7 @@ class Number_grid(GridLayout):
                         self.selectors_flat.append(selector)
 
     def solve(self):
-        while True:
-            update = False
-            for i in range(self.cols):
-                for j in range(self.rows):
-                    for l in range(3):
-                        for m in range(3):
-                            update = update or solve(self.selectors,i,j,l,m)
-            if update == False:
-                break
+        self.solver.solve(self.selectors)
 
     # reset result of solver
     def reset_solve(self):
@@ -247,8 +329,8 @@ class Number_grid(GridLayout):
 
     # undo user selection
     def undo_solve(self, *args, **kwargs):
-        solver = self.history.pop()
-        if solver is not None:
+        if len(self.history) > 0:
+            solver = self.history.pop()
             solver.clear_solve()
             self.reset_solve()
             self.solve()
@@ -293,4 +375,7 @@ class SolverApp(App):
         return vb
 
 if __name__ == '__main__':
+    Config.set('graphics', 'width', '600')
+    Config.set('graphics', 'height', '600')
+
     SolverApp().run()
