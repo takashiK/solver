@@ -8,6 +8,12 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
+from kivy.uix.widget import Widget
+from kivy.graphics import Color
+from kivy.graphics import Rectangle
+from kivy.graphics import Line
+from kivy.uix.filechooser import FileChooserIconView
+from kivy.uix.popup import Popup
 
 def single_verify(selectors,i,j,l,m):
     number = selectors[i][j][l][m]
@@ -31,7 +37,6 @@ def single_verify(selectors,i,j,l,m):
             value = selectors[i][s][l][t].value()
             if value is not None:
                 disables.add(value)
-                own_available = own_available - set([value])
 
     #vertical j,m freeze
     for s in range(3):
@@ -41,11 +46,10 @@ def single_verify(selectors,i,j,l,m):
             value = selectors[s][j][t][m].value()
             if value is not None:
                 disables.add(value)
-                own_available = own_available - set([value])
 
     available = set(number.available())
 
-    if len(available & disables) == 0:
+    if len(available - disables) > 0:
         return True
     return False
 
@@ -101,10 +105,7 @@ class Solver():
                 if count == length:
                     for value in ava:
                         disables.add(value) # number group
-        if self.features['uniqueness'] and len(own_available) == 1:
-            number.setValue(list(own_available)[0]) #uniqueness
-            return True
-        return False
+        return own_available
 
     def single_solve(self,selectors,i,j,l,m):
         number = selectors[i][j][l][m]
@@ -112,108 +113,51 @@ class Solver():
             return False
 
         disables = set()
+        own_available = set()
 
         #group
         selector_part = [None]*3
-        availables = []
-        own_available = set(number.available())
         for s in range(3):
             selector_part[s] = [None]*3
             for t in range(3):
                 if s == l and t == m:
                     continue
                 selector_part[s][t] = selectors[i][j][s][t]
-        if self.single_solve_part(number,selector_part,disables):
-            return True
+        own_available = own_available | self.single_solve_part(number,selector_part,disables)
 
         #horizon i,l freeze
         selector_part = [None]*3
-        availables = []
-        own_available = set(number.available())
         for s in range(3):
             selector_part[s] = [None]*3
             for t in range(3):
                 if s == j and t == m:
                     continue
                 selector_part[s][t] = selectors[i][s][l][t]
-        if self.single_solve_part(number,selector_part,disables):
-            return True
+        own_available = own_available | self.single_solve_part(number,selector_part,disables)
 
         #vertical j,m freeze
         selector_part = [None]*3
-        availables = []
-        own_available = set(number.available())
         for s in range(3):
             selector_part[s] = [None]*3
             for t in range(3):
                 if s == i and t == l:
                     continue
                 selector_part[s][t] = selectors[s][j][t][m]
-        if self.single_solve_part(number,selector_part,disables):
-            return True
+        own_available = own_available | self.single_solve_part(number,selector_part,disables)
         
         old_availables = number.available()
         number.disable(disables)
+        own_available = own_available - disables
         if len(number.available()) == 1:
             val = number.available()[0]
             number.setValue(val)
+        if (len(own_available) == 1) and self.features['uniqueness']:
+            number.setValue(list(own_available)[0])
 
         if old_availables != number.available():
             return True
 
         return False
-
-    def reflect_solve(self,selectors):
-        update = False
-        #uniqueness horizontal line
-        for i in range(3):
-            for l in range(3):
-                for j in range(3):
-                    available = set()
-                    disable = set()
-                    #target block line available numbers
-                    for m in range(3):
-                        disable = disable | selectors[i,j,l,m].available()
-                    #remain block lines available numbers
-                    for s in range(3):
-                        if s != l:
-                            for t in range(3):
-                                available = available | selectors[i,j,s,t].available()
-                    disable = disable - available
-                    if len(available) > 0:
-                        for s in range(3):
-                            if s != j:
-                                for t in range(3):
-                                    old_available = selectors[i,s,l,t].available()
-                                    selectors[i,s,l,t].disable(disable)
-                                    if old_available != selectors[i,s,l,t].available():
-                                        update = True
-
-        #uniqueness vartical line
-        for j in range(3):
-            for m in range(3):
-                for i in range(3):
-                    available = set()
-                    disable = set()
-                    #target block line available numbers
-                    for l in range(3):
-                        disable = disable | selectors[i,j,l,m].available()
-                    #remain block lines available numbers
-                    for s in range(3):
-                        if s != m:
-                            for t in range(3):
-                                available = available | selectors[i,j,s,t].available()
-                    disable = disable - available
-                    if len(available) > 0:
-                        for s in range(3):
-                            if s != i:
-                                for t in range(3):
-                                    old_available = selectors[s,j,t,m].available()
-                                    selectors[s,j,t,m].disable(disable)
-                                    if old_available != selectors[s,j,t,m].available():
-                                        update = True
-
-        return update
 
     def solve(self,selectors):
         while True:
@@ -223,10 +167,9 @@ class Solver():
                     for l in range(3):
                         for m in range(3):
                             update = update or self.single_solve(selectors,i,j,l,m)
-#            if update == False:
-#                update = update or self.reflect_solve(selectors)
             if update == False:
                 break
+        print(verify(selectors))
 
 ########################################################################
 ##
@@ -272,6 +215,18 @@ class Number_selector(GridLayout):
         self.selected_value = value
         label = Label(text=str(value))
         self.add_widget(label)
+        if self.selected:
+            lines = []
+            lines.append([self.pos[0],self.pos[1]])
+            lines.append([self.pos[0]+self.size[0],self.pos[1]])
+            lines.append([self.pos[0]+self.size[0],self.pos[1]+self.size[1]])
+            lines.append([self.pos[0],self.pos[1]+self.size[1]])
+            with label.canvas.before:
+                Color(0.2,0.2,0.2)
+                Rectangle(pos=self.pos,size=self.size)
+                Color(0.5,0.5,0.5)
+                Line(points=lines, close='True')
+
 
     # action for selection button (number button)
     def button_callback(self,number):
@@ -381,6 +336,7 @@ class Number_grid(GridLayout):
 
     # load selection from file
     def load(self, filename):
+        print(filename)
         self.clear_solve()
 
         if not filename:
@@ -413,6 +369,7 @@ class Number_grid(GridLayout):
     
     # store user selection to file
     def store(self, filename):
+        print(filename)
         if filename:
             data_type = []
             x_pos = []
@@ -437,6 +394,51 @@ class Number_grid(GridLayout):
         self.history.append(selector)
         self.solve()
 
+######################################################
+##
+## File Dialog
+##
+class FileDialog(BoxLayout):
+    def __init__(self):
+        super(FileDialog, self).__init__()
+        self.orientation="vertical"
+
+        self.register_event_type('on_ok')
+        self.register_event_type('on_cancel')
+
+        file = FileChooserIconView(path=os.getcwd())
+        self.add_widget(file)
+        
+        text = TextInput(hint_text='Input filename', size_hint=(1,0.1))
+        def update_selection(instance,sel):
+            if not file.selection:
+                text.text = ''
+            else:
+                text.text = file.selection[0][len(file.path)+1:]
+        file.bind(selection=update_selection)
+        self.add_widget(text)
+
+        hb = BoxLayout(orientation="horizontal", size_hint=(1,0.1))
+        self.add_widget(hb)
+
+        btn = Button(text="OK")
+        btn.bind(on_release=lambda button: self.dispatch('on_ok', file.path + os.sep + text.text if text.text else ''))
+        hb.add_widget(btn)
+
+        btn = Button(text="Cancel")
+        btn.bind(on_release=lambda button: self.dispatch('on_cancel'))
+        hb.add_widget(btn)
+
+    def on_ok(self, *args, **kwargs):
+        pass
+
+    def on_cancel(self, *args, **kwargs):
+        pass
+
+######################################################
+##
+## Main App
+##
 class SolverApp(App):
     def __init__(self, **kwargs):
         super(SolverApp, self).__init__(**kwargs)
@@ -445,11 +447,9 @@ class SolverApp(App):
         vb = BoxLayout(orientation="vertical")
 
         hb = BoxLayout(orientation="horizontal", size_hint=(1,0.05))
-        textBox = TextInput(hint_text='filename', multiline=False, size_hint=(1,0.05))
         solver = Number_grid()
 
         vb.add_widget(hb)
-        vb.add_widget(textBox)
         vb.add_widget(solver)
 
         btn = Button(text="Clear")
@@ -459,13 +459,31 @@ class SolverApp(App):
         btn.bind(on_release=solver.undo_solve)
         hb.add_widget(btn)
         btn = Button(text="Load")
-        btn.bind(on_release=lambda button:solver.load(textBox.text))
+        btn.bind(on_release=lambda button:self.load(solver))
         hb.add_widget(btn)
         btn = Button(text="Save")
-        btn.bind(on_release=lambda button:solver.store(textBox.text))
+        btn.bind(on_release=lambda button:self.save(solver))
         hb.add_widget(btn)
         
         return vb
+    
+    def dismiss_popup(self):
+        if self._popup is not None:
+            self._popup.dismiss()
+
+    def load(self,solver):
+        dlg = FileDialog()
+        dlg.bind(on_ok=lambda fileDlg,filename:self.dismiss_popup() or solver.load(filename))
+        dlg.bind(on_cancel=lambda fileDlg:self.dismiss_popup())
+        self._popup = Popup(title="Load", content=dlg,size_hint=(0.9, 0.9))
+        self._popup.open()
+
+    def save(self,solver):
+        dlg = FileDialog()
+        dlg.bind(on_ok=lambda fileDlg,filename:self.dismiss_popup() or solver.store(filename))
+        dlg.bind(on_cancel=lambda fileDlg:self.dismiss_popup())
+        self._popup = Popup(title="Save", content=dlg,size_hint=(0.9, 0.9))
+        self._popup.open()
 
 if __name__ == '__main__':
     Config.set('graphics', 'width', '600')

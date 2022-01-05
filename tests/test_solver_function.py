@@ -134,6 +134,7 @@ def available_uniqueness(selectors,i,j,l,m):
         return [number.value()]
 
     disables = set()
+    own_availables = set()
 
     #group
     availables = []
@@ -149,8 +150,8 @@ def available_uniqueness(selectors,i,j,l,m):
                 availables.append(selectors[i][j][s][t].available())
     for ava in availables:
         own_available = own_available - set(ava)
-    if len(own_available) == 1:
-        return list(own_available)
+
+    own_availables = own_availables | own_available
 
     #horizon i,l freeze
     availables = []
@@ -166,8 +167,8 @@ def available_uniqueness(selectors,i,j,l,m):
                 availables.append(selectors[i][s][l][t].available())
     for ava in availables:
         own_available = own_available - set(ava)
-    if len(own_available) == 1:
-        return list(own_available)
+
+    own_availables = own_availables | own_available
 
     #vertical j,m freeze
     availables = []
@@ -183,8 +184,11 @@ def available_uniqueness(selectors,i,j,l,m):
                 availables.append(selectors[s][j][t][m].available())
     for ava in availables:
         own_available = own_available - set(ava)
-    if len(own_available) == 1:
-        return list(own_available)
+
+    own_availables = own_availables | own_available
+
+    if len(own_availables) == 1:
+        return list(own_availables)
     return [1,2,3,4,5,6,7,8,9]
 
 def available_number_group(selectors,i,j,l,m):
@@ -324,9 +328,9 @@ def test_solver_uniqueness():
     grid.selectors[0][1][1][0].setValue(1)
     grid.selectors[0][1][2][0].setValue(2)
     grid.selectors[1][1][0][0].setValue(3)
-    grid.selectors[1][1][2][0].setValue(6)
+    grid.selectors[1][1][2][0].setValue(8)
     grid.selectors[2][1][0][0].setValue(7)
-    grid.selectors[2][1][1][0].setValue(8)
+    grid.selectors[2][1][1][0].setValue(6)
     grid.selectors[2][1][2][0].setValue(9)
 
     for i in range(3):
@@ -334,6 +338,7 @@ def test_solver_uniqueness():
             for l in range(3):
                 for m in range(3):
                     solver.single_solve(grid.selectors,i,j,l,m)
+                    selector = grid.selectors[i][j][l][m]
                     assert grid.selectors[i][j][l][m].available() == available_uniqueness(grid.selectors,i,j,l,m)
 
 def test_solver_number_group():
