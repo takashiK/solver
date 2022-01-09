@@ -66,10 +66,10 @@ class Solver():
     def __init__(self):
         self.features = {}
         self.features['singleton'] = True
-        self.features['uniqueness'] = True
         self.features['number_group'] = True
+        self.features['uniqueness'] = True
         self.features['uniqueness_line'] = True
-        self.features['uniqueness_grid'] = True
+        self.features['uniqueness_Multi'] = True
 
     def get_features(self):
         return self.features.copy()
@@ -159,17 +159,118 @@ class Solver():
 
         return False
 
+    def partial_selectors(self,type,selectors,s,t):
+        result = []
+        if type == 'block':
+            i = s
+            j = t
+            for l in range(3):
+                for m in range(3):
+                    result.append(selectors[i][j][l][m])
+        elif type == 'horizontal':
+            i = s
+            l = t
+            for j in range(3):
+                for m in range(3):
+                    result.append(selectors[i][j][l][m])
+        elif type == 'vertical':
+            j = s
+            m = t
+            for i in range(3):
+                for l in range(3):
+                    result.append(selectors[i][j][l][m])
+        return result
+
+    def line_disabler(self,direction,line,selectors,i,j,num):
+        update = False
+        if direction == 'h':
+            for s in range(3):
+                if s == j:
+                    continue
+                for t in range(3):
+                    selector = selectors[i][s][line][t]
+                    if (selector.value() is None) and (num in selector.available()):
+                        selector.disable([num])
+                        update = True
+        elif direction == 'v':
+            for s in range(3):
+                if s == i:
+                    continue
+                for t in range(3):
+                    selector = selectors[s][j][t][line]
+                    if (selector.value() is None) and (num in selector.available()):
+                        selector.disable([num])
+                        update = True
+        return update
+
+    def make_blockdetectors(self):
+        detectors = []
+        detectors.append([set([0,1,2]),lambda selectors,i,j,num:self.line_disabler('h',0,selectors,i,j,num)])
+        detectors.append([set([3,4,5]),lambda selectors,i,j,num:self.line_disabler('h',1,selectors,i,j,num)])
+        detectors.append([set([6,7,8]),lambda selectors,i,j,num:self.line_disabler('h',2,selectors,i,j,num)])
+        detectors.append([set([0,3,6]),lambda selectors,i,j,num:self.line_disabler('v',0,selectors,i,j,num)])
+        detectors.append([set([1,4,7]),lambda selectors,i,j,num:self.line_disabler('v',1,selectors,i,j,num)])
+        detectors.append([set([2,5,8]),lambda selectors,i,j,num:self.line_disabler('v',2,selectors,i,j,num)])
+        return detectors
+
+    def available_solve(self,selectors):
+        update = False
+        detectors = self.make_blockdetectors()
+        for i in range(3):
+            for j in range(3):
+                available = []
+                for s in range(9):
+                    available.append(set())
+                partial = self.partial_selectors('block',selectors,i,j)
+                # create number ⇒ positions available list
+                for s in range(9):
+                    tmp = partial[s].available()
+                    for num in partial[s].available():
+                        available[num-1].add(s)
+                for num in range(1,10):
+                    tgt = available[num-1]
+                    same_pos_nums = []
+                    for num2 in range(num,10):
+                        if tgt == available[num2-1]:
+                            same_pos_nums.append(num2)
+                    if len(tgt) == len(same_pos_nums):
+                        #target number pos disabler
+                        disables = set(range(1,10)) - set(same_pos_nums)
+                        if len(disables) > 0:
+                            for pos in tgt:
+                                part = partial[pos]
+                                if (part.value() is None) and (len(set(part.available()) & disables) > 0):
+                                    part.disable(disables)
+                                    update = True
+                    #line disabler
+                    for detector in detectors:
+                        if len(detector[0] & tgt) == len(tgt):
+                            update = update or detector[1](selectors,i,j,num)
+
+        return update
+
     def solve(self,selectors):
         while True:
-            update = False
-            for i in range(3):
-                for j in range(3):
-                    for l in range(3):
-                        for m in range(3):
-                            update = update or self.single_solve(selectors,i,j,l,m)
-            if update == False:
+            update_part = False
+            while True:
+                update = False
+                for i in range(3):
+                    for j in range(3):
+                        for l in range(3):
+                            for m in range(3):
+                                update = update or self.single_solve(selectors,i,j,l,m)
+                update_part = update_part or update
+                if update == False:
+                    break
+            while True:
+                update = self.available_solve(selectors)
+                update_part = update_part or update
+                if update == False:
+                    break
+            if update_part == False:
                 break
         print(verify(selectors))
+        self.available_solve(selectors)
 
 ########################################################################
 ##
@@ -323,6 +424,7 @@ class Number_grid(GridLayout):
 
     # clear alldata (include user selection)
     def clear_solve(self, *args, **kwargs):
+        self.history.clear()
         for solver in self.selectors_flat:
             solver.clear_solve()
 
@@ -364,6 +466,7 @@ class Number_grid(GridLayout):
                 i,l = divmod(y,3)
                 selector = self.selectors[i][j][l][m]
                 selector.setValue(v,True)
+                self.history.append(selector)
         self.solve()
         return True
     
