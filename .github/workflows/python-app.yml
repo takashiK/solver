@@ -22,7 +22,8 @@ jobs:
         python-version: "3.8.2"
     - name: Install dependencies
       run: |
-        sudo apt install libgl-dev
+        sudo apt install libgl-dev xvfb pulseaudio xsel
+        /sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -screen 0 1280x720x24 -ac +extension GLX
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
