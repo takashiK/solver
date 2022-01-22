@@ -22,6 +22,8 @@ jobs:
         python-version: "3.8.2"
     - name: Install dependencies
       run: |
+        sudo apt update
+        sudo apt -y upgrade
         sudo apt -y install libgl-dev xvfb pulseaudio xsel
         sudo apt -y install libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev libsdl2-mixer-dev
         sudo apt -y install libgstreamer1.0-dev gstreamer1.0-alsa gstreamer1.0-plugins-base
