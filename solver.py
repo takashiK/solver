@@ -1,19 +1,6 @@
 import pandas as pd
 import numpy as np
 import os
-from kivy.app import App
-from kivy.config import Config
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
-from kivy.uix.widget import Widget
-from kivy.graphics import Color
-from kivy.graphics import Rectangle
-from kivy.graphics import Line
-from kivy.uix.filechooser import FileChooserIconView
-from kivy.uix.popup import Popup
 
 def single_verify(selectors,i,j,l,m):
     number = selectors[i][j][l][m]
@@ -276,91 +263,44 @@ class Solver():
 ##
 ##  Number Selector
 ##
-class Number_selector(GridLayout):
+class Number_selector():
     def __init__(self,position):
-        super(Number_selector, self).__init__()
-        self.register_event_type('on_selected')   # register event : number is selected by user. (not caused by solver) 
-        self.padding = [2,2] # layout value
-        self.numbers = []    # number selectors bottons
+        self.numbers = [True]*9    # number selectors numbers
         self.selected_value = None  # user selected or solver solved value.
         self.selected = False # True if it is selected by user.
         self.grid_position = position # grid position (y,x)
-        for i in range(9):
-            number = Button(text=str(i+1))
-            number.bind(on_release=self.button_callback)
-            self.numbers.append(number)
-        self.build_selector()
 
     def position(self):
         return self.grid_position
 
-    def on_selected(self, *args, **kwargs):
-        pass
-
     # build selector ui
-    def build_selector(self):
-        self.clear_widgets()
-        self.cols = 3
-        self.rows = 3
+    def reset(self):
         self.selected_value = None
         self.selected = False
-        for number in self.numbers:
-            number.disabled = False
-            self.add_widget(number)
-
-    # build selected value ui
-    def build_represent(self, value):
-        self.clear_widgets()
-        self.cols = 1
-        self.rows = 1
-        self.selected_value = value
-        label = Label(text=str(value))
-        self.add_widget(label)
-        if self.selected:
-            lines = []
-            lines.append([self.pos[0],self.pos[1]])
-            lines.append([self.pos[0]+self.size[0],self.pos[1]])
-            lines.append([self.pos[0]+self.size[0],self.pos[1]+self.size[1]])
-            lines.append([self.pos[0],self.pos[1]+self.size[1]])
-            with label.canvas.before:
-                Color(0.2,0.2,0.2)
-                Rectangle(pos=self.pos,size=self.size)
-                Color(0.5,0.5,0.5)
-                Line(points=lines, close='True')
-
-
-    # action for selection button (number button)
-    def button_callback(self,number):
-        if not number.disabled :
-            self.setValue(int(number.text),True)
-            self.dispatch('on_selected')
-    
-    def is_user_select(self):
-        return self.selected
+        self.numbers = [True]*9
 
     # set selected value. mean of None is deselection.
     def setValue(self,value,user=False):
         if value is None:
-            self.build_selector()
+            self.reset()
         else:
             self.selected = user
-            self.build_represent(value)
+            self.selected_value = value
+
+    def is_user_select(self):
+        return self.selected
  
     # int value of selected number.
     def value(self):
         return self.selected_value
 
-    # Ture : value is selected by user
-    def isFixed(self):
-        return self.selected
-
     # available values. it is result of solver.
     def available(self):
         values = []
         if self.selected_value is None:
-            for number in self.numbers:
-                if not number.disabled:
-                    values.append(int(number.text))
+            for i,state in enumerate(self.numbers):
+                if state:
+                    values.append(i+1)
         else:
             values.append(self.selected_value)
         return values
@@ -368,14 +308,11 @@ class Number_selector(GridLayout):
     # set disabled values by solver.
     def disable(self,dsel):
         for i in dsel:
-            self.numbers[i-1].disabled = True
+            self.numbers[i-1] = False
 
     # reset result of solver.
     def reset_solve(self):
-        if self.selected:
-            for number in self.numbers:
-                number.disabled = False
-        else:
+        if not self.selected:
             self.clear_solve()
 
     # clear result of solver and user selection.
@@ -386,55 +323,41 @@ class Number_selector(GridLayout):
 ##
 ##  Number Grid
 ##
-class Number_grid(GridLayout):
+class Number_grid():
     def __init__(self):
-        super(Number_grid, self).__init__()
-        self.cols = 3 # layout value
-        self.rows = 3 # layout value
         self.selectors = [] # selectors grid (3,3) in (3,3) "Sudoku shape"
         self.selectors_flat = [] # selectors 1 dim array
         self.history = [] # history of user selection
         self.solver = Solver()
 
-        for i in range(self.cols):
+        for i in range(3):
             jdim = []
             self.selectors.append(jdim)
-            for j in range(self.rows):
-                grid = GridLayout(cols=3,rows=3,padding=[3,3])
-                self.add_widget(grid)
+            for j in range(3):
                 ldim = []
                 jdim.append(ldim)
-                for l in range(grid.cols):
+                for l in range(3):
                     mdim = []
                     ldim.append(mdim)
-                    for m in range(grid.rows):
+                    for m in range(3):
                         selector = Number_selector((i*3+l,j*3+m))
-                        selector.bind(on_selected=self.change_select)
-                        grid.add_widget(selector)
                         mdim.append(selector)
                         self.selectors_flat.append(selector)
 
     def solve(self):
         self.solver.solve(self.selectors)
+        return verify(self.selectors)
 
     # reset result of solver
     def reset_solve(self):
-        for solver in self.selectors_flat:
-            solver.reset_solve()
+        for selector in self.selectors_flat:
+            selector.reset_solve()
 
     # clear alldata (include user selection)
-    def clear_solve(self, *args, **kwargs):
+    def clear_solve(self):
         self.history.clear()
-        for solver in self.selectors_flat:
-            solver.clear_solve()
-
-    # undo user selection
-    def undo_solve(self, *args, **kwargs):
-        if len(self.history) > 0:
-            solver = self.history.pop()
-            solver.clear_solve()
-            self.reset_solve()
-            self.solve()
+        for selector in self.selectors_flat:
+            selector.clear_solve()
 
     # load selection from file
     def load(self, filename):
@@ -492,104 +415,17 @@ class Number_grid(GridLayout):
             df = pd.DataFrame({'type':data_type,'x_pos':x_pos,'y_pos':y_pos,'value':value})
             df.to_csv(filename)
 
+    def selector(self,i,j,l,m):
+        return self.selectors[i][j][l][m]
+
     # callback point for Number selector's on_selected
-    def change_select(self,selector):
+    def append_history(self,selector):
         self.history.append(selector)
-        self.solve()
 
-######################################################
-##
-## File Dialog
-##
-class FileDialog(BoxLayout):
-    def __init__(self):
-        super(FileDialog, self).__init__()
-        self.orientation="vertical"
-
-        self.register_event_type('on_ok')
-        self.register_event_type('on_cancel')
-
-        file = FileChooserIconView(path=os.getcwd())
-        self.add_widget(file)
-        
-        text = TextInput(hint_text='Input filename', size_hint=(1,0.1))
-        def update_selection(instance,sel):
-            if not file.selection:
-                text.text = ''
-            else:
-                text.text = file.selection[0][len(file.path)+1:]
-        file.bind(selection=update_selection)
-        self.add_widget(text)
-
-        hb = BoxLayout(orientation="horizontal", size_hint=(1,0.1))
-        self.add_widget(hb)
-
-        btn = Button(text="OK")
-        btn.bind(on_release=lambda button: self.dispatch('on_ok', file.path + os.sep + text.text if text.text else ''))
-        hb.add_widget(btn)
-
-        btn = Button(text="Cancel")
-        btn.bind(on_release=lambda button: self.dispatch('on_cancel'))
-        hb.add_widget(btn)
-
-    def on_ok(self, *args, **kwargs):
-        pass
-
-    def on_cancel(self, *args, **kwargs):
-        pass
-
-######################################################
-##
-## Main App
-##
-class SolverApp(App):
-    def __init__(self, **kwargs):
-        super(SolverApp, self).__init__(**kwargs)
-        self.title = 'Solver'
-    def build(self):
-        vb = BoxLayout(orientation="vertical")
-
-        hb = BoxLayout(orientation="horizontal", size_hint=(1,0.05))
-        solver = Number_grid()
-
-        vb.add_widget(hb)
-        vb.add_widget(solver)
-
-        btn = Button(text="Clear")
-        btn.bind(on_release=solver.clear_solve)
-        hb.add_widget(btn)
-        btn = Button(text="Undo")
-        btn.bind(on_release=solver.undo_solve)
-        hb.add_widget(btn)
-        btn = Button(text="Load")
-        btn.bind(on_release=lambda button:self.load(solver))
-        hb.add_widget(btn)
-        btn = Button(text="Save")
-        btn.bind(on_release=lambda button:self.save(solver))
-        hb.add_widget(btn)
-        
-        return vb
-    
-    def dismiss_popup(self):
-        if self._popup is not None:
-            self._popup.dismiss()
-
-    def load(self,solver):
-        dlg = FileDialog()
-        dlg.bind(on_ok=lambda fileDlg,filename:self.dismiss_popup() or solver.load(filename))
-        dlg.bind(on_cancel=lambda fileDlg:self.dismiss_popup())
-        self._popup = Popup(title="Load", content=dlg,size_hint=(0.9, 0.9))
-        self._popup.open()
-
-    def save(self,solver):
-        dlg = FileDialog()
-        dlg.bind(on_ok=lambda fileDlg,filename:self.dismiss_popup() or solver.store(filename))
-        dlg.bind(on_cancel=lambda fileDlg:self.dismiss_popup())
-        self._popup = Popup(title="Save", content=dlg,size_hint=(0.9, 0.9))
-        self._popup.open()
-
-if __name__ == '__main__':
-    Config.set('graphics', 'width', '600')
-    Config.set('graphics', 'height', '600')
-
-    SolverApp().run()
+    # undo user selection
+    def undo_history(self):
+        if len(self.history) > 0:
+            selector = self.history.pop()
+            selector.clear_solve()
+            self.reset_solve()
+            self.solve()
