@@ -2,3 +2,5 @@
 *.csv
 .venv
 venv
+.coverage
+coverage.xml
