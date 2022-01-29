@@ -256,8 +256,8 @@ class Solver():
                     break
             if update_part == False:
                 break
-        print(verify(selectors))
         self.available_solve(selectors)
+        print(verify(selectors))
 
 ########################################################################
 ##

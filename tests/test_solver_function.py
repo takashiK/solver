@@ -1,95 +1,6 @@
 import pytest
 
-from solver import Solver
-
-class Simple_number():
-    def __init__(self,value):
-        self.value = value
-        self.disabled = False
-
-class Simple_selector():
-    def __init__(self,position):
-        self.numbers = []    # number selectors bottons
-        self.selected_value = None  # user selected or solver solved value.
-        self.selected = False # True if it is selected by user.
-        self.grid_position = position # grid position (y,x)
-        for i in range(9):
-            number = Simple_number(i+1)
-            self.numbers.append(number)
-
-    # set selected value. mean of None is deselection.
-    def setValue(self,value):
-        if value is None:
-            self.selected_value = None
-            self.selected = False
-        else:
-            self.selected_value = value
- 
-    # int value of selected number.
-    def value(self):
-        return self.selected_value
-
-    # Ture : value is selected by user
-    def isFixed(self):
-        return self.selected
-
-    # available values. it is result of solver.
-    def available(self):
-        values = []
-        if self.selected_value is None:
-            for number in self.numbers:
-                if not number.disabled:
-                    values.append(number.value)
-        else:
-            values.append(self.selected_value)
-        return values
-
-    # set disabled values by solver.
-    def disable(self,dsel):
-        for i in dsel:
-            self.numbers[i-1].disabled = True
-
-    # reset result of solver.
-    def reset_solve(self):
-        if self.selected:
-            for number in self.numbers:
-                number.disabled = False
-        else:
-            self.clear_solve()
-
-    # clear result of solver and user selection.
-    def clear_solve(self):
-        self.setValue(None)
-
-class Simple_grid():
-    def __init__(self):
-        self.selectors = [] # selectors grid (3,3) in (3,3) "Sudoku shape"
-        self.selectors_flat = [] # selectors 1 dim array
-        self.history = [] # history of user selection
-
-        for i in range(3):
-            jdim = []
-            self.selectors.append(jdim)
-            for j in range(3):
-                ldim = []
-                jdim.append(ldim)
-                for l in range(3):
-                    mdim = []
-                    ldim.append(mdim)
-                    for m in range(3):
-                        selector = Simple_selector((i*3+l,j*3+m))
-                        mdim.append(selector)
-                        self.selectors_flat.append(selector)
-
-    # reset result of solver
-    def reset_solve(self):
-        for solver in self.selectors_flat:
-            solver.reset_solve()
-
-    # clear alldata (include user selection)
-    def clear_solve(self, *args, **kwargs):
-        for solver in self.selectors_flat:
-            solver.clear_solve()
+from solver import Solver,Number_grid
 
 def available_singleton(selectors,i,j,l,m):
     number = selectors[i][j][l][m]
@@ -285,7 +196,7 @@ def test_solver_singleton():
         else:
             features[feat] = False
     solver.set_features(features)
-    grid = Simple_grid()
+    grid = Number_grid()
     grid.selectors[0][0][0][1].setValue(5)
     grid.selectors[0][1][0][1].setValue(6)
     grid.selectors[0][1][2][2].setValue(9)
@@ -309,7 +220,7 @@ def test_solver_uniqueness():
         else:
             features[feat] = False
     solver.set_features(features)
-    grid = Simple_grid()
+    grid = Number_grid()
 
     count = 0
     for j in range(3):
@@ -350,7 +261,7 @@ def test_solver_number_group():
         else:
             features[feat] = False
     solver.set_features(features)
-    grid = Simple_grid()
+    grid = Number_grid()
     grid.selectors[0][0][0][1].disable([3,4,5,6,7,8,9])
     grid.selectors[0][0][0][2].disable([3,4,5,6,7,8,9])
 

@@ -117,11 +117,6 @@ class Number_grid_ui(GridLayout):
         self.number_grid.solve()
         self.update_ui()
 
-    # reset result of solver
-    def reset_solve(self):
-        self.number_grid.reset_solve()
-        self.update_ui()
-
     # clear alldata (include user selection)
     def clear_solve(self, *args, **kwargs):
         self.number_grid.clear_solve()
@@ -143,10 +138,9 @@ class Number_grid_ui(GridLayout):
         self.number_grid.store(filename)
 
     # callback point for Number selector's on_selected
-    def change_select(self,selector):
-        self.number_grid.append_history(selector)
-        self.number_grid.solve()
-        self.update_ui()
+    def change_select(self,selector_ui:Number_selector_ui):
+        self.number_grid.append_history(selector_ui.selector)
+        self.solve()
 
     def update_ui(self):
         for selector_ui in self.selectors_ui:
