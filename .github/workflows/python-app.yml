@@ -23,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest 
+        pip install flake8 pytest pytest-cov
         if [ -f test_requirements.txt ]; then pip install -r test_requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -33,4 +33,17 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest
+        pytest --cov=./ --cov-report=xml
+    - name: Codecov
+      # You may pin to the exact commit or the version.
+      # uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b
+      uses: codecov/codecov-action@v2.1.0
+      with:
+        # Flag upload to group coverage metrics (e.g. unittests | integration | ui,chrome)
+        flags: unittests
+        # Specify whether or not CI build should fail if Codecov runs into an error during upload
+        fail_ci_if_error: true
+        # Path to coverage file to upload
+        file: coverage.xml
+        # User defined upload name. Visible in Codecov UI
+        name: solver-coverage
