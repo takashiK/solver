@@ -12,28 +12,19 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.10
       uses: actions/setup-python@v2
       with:
-        python-version: "3.9"
+        python-version: "3.10"
     - name: Install dependencies
       run: |
-        sudo apt update
-        sudo apt -y upgrade
-        sudo apt -y install libgl-dev xvfb pulseaudio xsel
-        sudo apt -y install libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev libsdl2-mixer-dev
-        sudo apt -y install libgstreamer1.0-dev gstreamer1.0-alsa gstreamer1.0-plugins-base
-        sudo apt -y install libsmpeg-dev libswscale-dev libavformat-dev libavcodec-dev libjpeg-dev libtiff5-dev libx11-dev libmtdev-dev
-        sudo apt -y install build-essential libgl1-mesa-dev libgles2-mesa-dev
-        sudo apt -y install xvfb pulseaudio xsel
-        /sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -screen 0 1280x720x24 -ac +extension GLX
         python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install flake8 pytest 
+        if [ -f test_requirements.txt ]; then pip install -r test_requirements.txt; fi
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -42,4 +33,4 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        KIVY_NO_ARGS=1 pytest
+        pytest
